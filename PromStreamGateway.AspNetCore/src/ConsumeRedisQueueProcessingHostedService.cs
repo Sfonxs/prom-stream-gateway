@@ -48,23 +48,30 @@ public class ConsumeRedisQueueProcessingHostedService : IHostedService
     {
         _logger.LogInformation("Worker {WorkerIdx} is starting.", workerIdx);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            using (var scope = _services.CreateScope())
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var scopedProcessingService = scope.ServiceProvider.GetRequiredService<IRedisQueueProcessingService>();
+                using (var scope = _services.CreateScope())
+                {
+                    var scopedProcessingService = scope.ServiceProvider.GetRequiredService<IRedisQueueProcessingService>();
 
-                try
-                {
-                    await scopedProcessingService.DoWork(stoppingToken, workerIdx);
+                    try
+                    {
+                        await scopedProcessingService.DoWork(stoppingToken, workerIdx);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in worker {WorkerIdx}. Will continue.", workerIdx);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in worker {WorkerIdx}.", workerIdx);
-                }
+
+                await Task.Delay(1000, stoppingToken);
             }
-
-            await Task.Delay(1000, stoppingToken);
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore.
         }
 
         _logger.LogInformation("Worker {WorkerIdx} is stopping.", workerIdx);

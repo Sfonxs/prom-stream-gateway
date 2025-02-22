@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest  # Use Linux for better performance
+
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379  # Expose Redis for integration tests
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 9.0.x  # Use latest .NET version
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build Solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run Tests
+        env:
+          Redis__ConnectionString: "localhost:6379"  # Inject Redis connection for tests
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload Test Results (Optional)
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: Test Results
+          path: TestResults/*.trx

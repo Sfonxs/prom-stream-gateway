@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Prometheus;
 using StackExchange.Redis;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure redis client
@@ -34,3 +35,6 @@ app.MapGet("/", () =>
 });
 
 app.Run();
+
+// Workaround for the tests.
+public partial class Program {}
