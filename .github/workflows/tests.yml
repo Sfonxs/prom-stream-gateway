@@ -31,7 +31,7 @@ jobs:
       - name: Run Tests
         env:
           Redis__ConnectionString: "localhost:6379"  # Inject Redis connection for tests
-        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=TestResults/test-results.trx"
 
       - name: Upload Test Results (Optional)
         uses: actions/upload-artifact@v4  # ✅ Updated to v4
