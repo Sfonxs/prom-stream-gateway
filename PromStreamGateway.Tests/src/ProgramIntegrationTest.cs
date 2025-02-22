@@ -74,6 +74,40 @@ public class ProgramIntegrationTest : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("simple_histrogram_bucket{endpoint=\"/api/data\",method=\"GET\",le=\"0.1\"} 0", metrics);
     }
 
+
+    [Fact]
+    public async Task Metrics_Endpoint_Returns_Ingested_Histogram_Metrics_Different_Buckets_Ignores_Later_Buckets()
+    {
+        await EnqueueAsync(new
+        {
+            type = "histogram",
+            name = "simple_histrogram_different_buckets",
+            value = 5,  // Simulating request duration
+            buckets = new double[] { 1, 10}
+        }, 4);
+        await WaitUntilQueueProcessedAsync();
+        await EnqueueAsync(new
+        {
+            type = "histogram",
+            name = "simple_histrogram_different_buckets",
+            value = 5,  // Simulating request duration
+            buckets = new double[] { 4, 6, 7}
+        }, 4);
+        await WaitUntilQueueProcessedAsync();
+
+        var metrics = await GetMetricsAsync();
+
+        Assert.Contains("simple_histrogram_different_buckets_sum 40", metrics);
+        Assert.Contains("simple_histrogram_different_buckets_count 8", metrics);
+        Assert.Contains("simple_histrogram_different_buckets_bucket{le=\"+Inf\"} 8", metrics);
+        Assert.Contains("simple_histrogram_different_buckets_bucket{le=\"10\"} 8", metrics);
+        Assert.Contains("simple_histrogram_different_buckets_bucket{le=\"1\"} 0", metrics);
+        Assert.DoesNotContain("simple_histrogram_different_buckets_bucket{le=\"7\"}", metrics);
+        Assert.DoesNotContain("simple_histrogram_different_buckets_bucket{le=\"6\"}", metrics);
+        Assert.DoesNotContain("simple_histrogram_different_buckets_bucket{le=\"4\"}", metrics);
+    }
+
+
     [Fact]
     public async Task Metrics_Endpoint_Returns_Ingested_Histogram_Metrics_With_No_Buckets_Is_Dropped()
     {
@@ -283,6 +317,43 @@ public class ProgramIntegrationTest : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("# TYPE different_label_names_counter counter", metrics);
         Assert.Contains("different_label_names_counter{instance=\"some-instance\",job=\"some-job\",tenant=\"some-tenant-id\"} 5", metrics);
         Assert.Contains("different_label_names_counter{component=\"some-component\",external=\"some-external\",tenant=\"some-tenant-id\"} 3", metrics);
+    }
+
+    [Fact]
+    public async Task Same_Metric_Name_But_Different_Type_Is_Dropped()
+    {
+        await EnqueueAsync(new
+        {
+            type = "counter",
+            name = "simple_counter_and_gauge",
+            value = 1,
+            labels = new
+            {
+                instance = "some-instance",
+                job = "some-job",
+                tenant = "some-tenant-id"
+            }
+        }, 1);
+        await WaitUntilQueueProcessedAsync();
+
+        await EnqueueAsync(new
+        {
+            type = "gauge",
+            name = "simple_counter_and_gauge",
+            value = 1,
+            labels = new
+            {
+                instance = "some-instance",
+                job = "some-job",
+                tenant = "some-tenant-id"
+            }
+        }, 1);
+        await WaitUntilQueueProcessedAsync();
+
+        var metrics = await GetMetricsAsync();
+        Assert.Contains("# HELP simple_counter", metrics);
+        Assert.Contains("# TYPE simple_counter counter", metrics);
+        Assert.Contains("simple_counter{instance=\"some-instance\",job=\"some-job\",tenant=\"some-tenant-id\"} 11", metrics);
     }
 
     private async Task EnqueueAsync(dynamic metric, int times)

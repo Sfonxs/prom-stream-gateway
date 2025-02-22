@@ -41,13 +41,14 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
         var processedMetricsCounter = _metricFactory
             .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
             .WithLabels(workerIdx.ToString());
-        
+
         long iterations = 0;
         const long iterationsUntilQueueMeasurement = 2500;
         while (!stoppingToken.IsCancellationRequested)
         {
             iterations++;
-            if(iterations % iterationsUntilQueueMeasurement == 0) {
+            if (iterations % iterationsUntilQueueMeasurement == 0)
+            {
                 pendingQueueSize.Set(await database.ListLengthAsync(metricQueueKey));
             }
 
@@ -60,10 +61,10 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
             }
 
             var rawMetricString = rawMetric.ToString();
-            if (!MetricData.TryParse(rawMetricString, out var metric))
+            if (!MetricData.TryParse(rawMetricString, out var metric, out var reason))
             {
                 droppedMetricsCounter.Inc();
-                _logger.LogWarning("Dropped invalid metric: {RawJson}", rawMetricString);
+                _logger.LogWarning("Dropped invalid metric because \"{Reason}\": {RawJson}", reason, rawMetricString);
                 continue;
             }
 
