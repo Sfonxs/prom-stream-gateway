@@ -1,0 +1,5 @@
+@PromStreamGateway.AspNetCore_HostAddress = http://localhost:5014
+
+GET {{PromStreamGateway.AspNetCore_HostAddress}}/
+
+###
