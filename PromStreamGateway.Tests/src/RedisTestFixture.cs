@@ -10,7 +10,7 @@ public class RedisTestFixture : IAsyncLifetime
         .WithReuse(true)
         .WithPortBinding(6379, true)
         .Build();
-        
+
     public string RedisConnectionString => RedisContainer.GetConnectionString();
 
     public async Task InitializeAsync()

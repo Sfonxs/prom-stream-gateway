@@ -285,7 +285,6 @@ public class ProgramIntegrationTest : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("different_label_names_counter{component=\"some-component\",external=\"some-external\",tenant=\"some-tenant-id\"} 3", metrics);
     }
 
-
     private async Task EnqueueAsync(dynamic metric, int times)
     {
         for (int i = 0; i < times; i++)
