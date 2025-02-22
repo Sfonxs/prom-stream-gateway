@@ -75,6 +75,29 @@ public class ProgramIntegrationTest : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Metrics_Endpoint_Returns_Ingested_Histogram_Metrics_With_No_Buckets_Is_Dropped()
+    {
+        await EnqueueAsync(new
+        {
+            type = "histogram",
+            name = "simple_histrogram_no_buckets",
+            help = "Some help text.",
+            value = 0.75,  // Simulating request duration
+            labels = new
+            {
+                method = "GET",
+                endpoint = "/api/data"
+            }
+        }, 4);
+
+        await WaitUntilQueueProcessedAsync();
+
+        var metrics = await GetMetricsAsync();
+
+        Assert.DoesNotContain("simple_histrogram_no_buckets_sum", metrics);
+    }
+
+    [Fact]
     public async Task Metrics_Endpoint_Returns_Ingested_Gauge_Metrics()
     {
         await EnqueueAsync(new
@@ -124,6 +147,30 @@ public class ProgramIntegrationTest : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("simple_summary{endpoint=\"/upload\",method=\"POST\",quantile=\"0.5\"} 512", metrics);
         Assert.Contains("simple_summary{endpoint=\"/upload\",method=\"POST\",quantile=\"0.9\"} 512", metrics);
         Assert.Contains("simple_summary{endpoint=\"/upload\",method=\"POST\",quantile=\"0.99\"} 512", metrics);
+    }
+
+    [Fact]
+    public async Task Metrics_Endpoint_Returns_Ingested_Summary_Metrics_Without_Quantiles_Works()
+    {
+        await EnqueueAsync(new
+        {
+            type = "summary",
+            name = "simple_summary_no_quantiles",
+            value = 512,
+            labels = new
+            {
+                method = "POST",
+                endpoint = "/upload"
+            },
+        }, 2);
+
+        await WaitUntilQueueProcessedAsync();
+
+        var metrics = await GetMetricsAsync();
+        Assert.Contains("# HELP simple_summary_no_quantiles", metrics);
+        Assert.Contains("# TYPE simple_summary_no_quantiles summary", metrics);
+        Assert.Contains("simple_summary_no_quantiles_sum{endpoint=\"/upload\",method=\"POST\"} 1024", metrics);
+        Assert.Contains("simple_summary_no_quantiles_count{endpoint=\"/upload\",method=\"POST\"} 2", metrics);
     }
 
     [Fact]

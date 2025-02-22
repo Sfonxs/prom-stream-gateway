@@ -1,6 +1,4 @@
-using System.Text.Json;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualBasic;
 using Prometheus;
 using StackExchange.Redis;
 
@@ -30,23 +28,29 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
     public async Task DoWork(CancellationToken stoppingToken, int workerIdx)
     {
         var database = _redis.GetDatabase(_redisOptions.MetricQueueDatabase);
-        var metricQueueKey = new RedisKey(this._redisOptions.MetricQueueKey);
+        var metricQueueKey = new RedisKey(_redisOptions.MetricQueueKey);
 
-        var nonEmptyPopCount = _metricFactory
-            .CreateCounter("prom_stream_gateway_redis_queue_pops_total", "", new CounterConfiguration { LabelNames = ["worker"] })
-            .WithLabels(workerIdx.ToString());
         var emptyPopCounter = _metricFactory
             .CreateCounter("prom_stream_gateway_redis_queue_empty_pops_total", "", new CounterConfiguration { LabelNames = ["worker"] })
             .WithLabels(workerIdx.ToString());
+        var pendingQueueSize = _metricFactory
+            .CreateGauge("prom_stream_gateway_redis_queue_pending_size", "");
         var droppedMetricsCounter = _metricFactory
             .CreateCounter("prom_stream_gateway_dropped_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
             .WithLabels(workerIdx.ToString());
         var processedMetricsCounter = _metricFactory
             .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
             .WithLabels(workerIdx.ToString());
-
+        
+        long iterations = 0;
+        const long iterationsUntilQueueMeasurement = 2500;
         while (!stoppingToken.IsCancellationRequested)
         {
+            iterations++;
+            if(iterations % iterationsUntilQueueMeasurement == 0) {
+                pendingQueueSize.Set(await database.ListLengthAsync(metricQueueKey));
+            }
+
             var rawMetric = await database.ListRightPopAsync(metricQueueKey);
             if (!rawMetric.HasValue)
             {
@@ -54,14 +58,12 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
                 await Task.Delay(100, stoppingToken);
                 continue;
             }
-            else
-            {
-                nonEmptyPopCount.Inc();
-            }
 
-            if (!MetricData.TryParse(rawMetric.ToString(), out var metric))
+            var rawMetricString = rawMetric.ToString();
+            if (!MetricData.TryParse(rawMetricString, out var metric))
             {
                 droppedMetricsCounter.Inc();
+                _logger.LogWarning("Dropped invalid metric: {RawJson}", rawMetricString);
                 continue;
             }
 
@@ -98,21 +100,21 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
                 var counter = _metricFactory
                     .CreateCounter(metric.Name, metric.Help, new CounterConfiguration { LabelNames = labelNames })
                     .WithLabels(labelValues);
-                counter.Inc(metric.Value);  // Increment counter by the metric value
+                counter.Inc(metric.Value);
                 break;
 
             case MetricType.Gauge:
                 var gauge = _metricFactory
                     .CreateGauge(metric.Name, metric.Help, new GaugeConfiguration { LabelNames = labelNames })
                     .WithLabels(labelValues);
-                gauge.Set(metric.Value);  // Set the gauge value
+                gauge.Set(metric.Value);
                 break;
 
             case MetricType.Histogram:
                 var histogram = _metricFactory
                     .CreateHistogram(metric.Name, metric.Help, new HistogramConfiguration { LabelNames = labelNames, Buckets = metric.Buckets ?? [] })
                     .WithLabels(labelValues);
-                histogram.Observe(metric.Value);  // Observe the metric value
+                histogram.Observe(metric.Value);
                 break;
 
             case MetricType.Summary:
@@ -123,7 +125,7 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
                 var summary = _metricFactory
                     .CreateSummary(metric.Name, metric.Help, new SummaryConfiguration { LabelNames = labelNames, Objectives = objectives })
                     .WithLabels(labelValues);
-                summary.Observe(metric.Value);  // Observe the metric value
+                summary.Observe(metric.Value);
                 break;
         }
     }

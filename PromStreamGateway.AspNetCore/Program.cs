@@ -3,7 +3,6 @@ using Microsoft.Extensions.Options;
 using Prometheus;
 using StackExchange.Redis;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure redis client

@@ -1,4 +1,4 @@
 public class MetricOptions
 {
-    public bool SortIncomingLabels { get;set; }
+    public bool SortIncomingLabels { get; set; }
 }

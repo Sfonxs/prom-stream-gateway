@@ -31,7 +31,27 @@ public class MetricData
 
     private bool IsValid()
     {
-        return !string.IsNullOrWhiteSpace(Name);
+        if (string.IsNullOrWhiteSpace(Name))
+            return false;
+
+        if (Type == MetricType.Summary)
+        {
+            if ((Quantiles != null && Epsilons == null) || (Quantiles == null && Epsilons != null))
+                return false;
+
+            if (Quantiles?.Length != Epsilons?.Length)
+                return false;
+        }
+
+    
+        if(Type == MetricType.Histogram)
+        {
+            if(Buckets == null || Buckets.Length == 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static bool TryParse(string json, [NotNullWhen(true)] out MetricData? metric)

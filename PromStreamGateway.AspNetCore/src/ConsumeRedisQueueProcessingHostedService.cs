@@ -7,7 +7,7 @@ public class ConsumeRedisQueueProcessingHostedService : IHostedService
     private readonly int _workerCount;
     private Task[]? _workers;
     private readonly CancellationTokenSource _cts = new();
-    
+
     public ConsumeRedisQueueProcessingHostedService(
         IServiceProvider services,
          ILogger<ConsumeRedisQueueProcessingHostedService> logger,
