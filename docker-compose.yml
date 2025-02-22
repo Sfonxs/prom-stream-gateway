@@ -8,6 +8,7 @@ services:
     environment:
       - Redis__ConnectionString=redis:6379
       - Redis__MetricQueueWorkers=4
+      - Redis__MetricQueueDatabase=0
       - Redis__MetricQueueKey=prom-stream-gateway:metric-queue
     networks:
       - gateway
