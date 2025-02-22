@@ -16,12 +16,12 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u Sfonxs --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u sfonxs --password-stdin
 
       - name: Build Docker Image
         run: |
-          docker build -t ghcr.io/Sfonxs/prom-stream-gateway:latest .
+          docker build -t ghcr.io/sfonxs/prom-stream-gateway:latest .
 
       - name: Push Docker Image
         run: |
-          docker push ghcr.io/Sfonxs/prom-stream-gateway:latest
+          docker push ghcr.io/sfonxs/prom-stream-gateway:latest
