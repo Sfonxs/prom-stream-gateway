@@ -1,0 +1,27 @@
+name: Build and Publish Docker Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u Sfonxs --password-stdin
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ghcr.io/Sfonxs/prom-stream-gateway:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push ghcr.io/Sfonxs/prom-stream-gateway:latest
