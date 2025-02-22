@@ -10,18 +10,21 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
     private readonly IConnectionMultiplexer _redis;
     private readonly MetricFactory _metricFactory;
     private readonly RedisOptions _redisOptions;
+    private readonly MetricOptions _metricOptions;
 
     public RedisQueueProcessingService(
         ILogger<RedisQueueProcessingService> logger,
         IConnectionMultiplexer redis,
         MetricFactory metricFactory,
-        IOptions<RedisOptions> redisOptions
+        IOptions<RedisOptions> redisOptions,
+        IOptions<MetricOptions> metricOptions
     )
     {
         _logger = logger;
         _redis = redis;
         _metricFactory = metricFactory;
         _redisOptions = redisOptions.Value;
+        _metricOptions = metricOptions.Value;
     }
 
     public async Task DoWork(CancellationToken stoppingToken, int workerIdx)
@@ -78,6 +81,14 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
     private void ProcessMetric(MetricData metric)
     {
         var labels = metric.Labels ?? [];
+
+        if (_metricOptions.SortIncomingLabels)
+        {
+            labels = labels
+                .OrderBy(kv => kv.Key)
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
         var labelNames = labels.Keys.ToArray();
         var labelValues = labels.Values.ToArray();
 
@@ -99,14 +110,18 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
 
             case MetricType.Histogram:
                 var histogram = _metricFactory
-                    .CreateHistogram(metric.Name, metric.Help, new HistogramConfiguration { LabelNames = labelNames })
+                    .CreateHistogram(metric.Name, metric.Help, new HistogramConfiguration { LabelNames = labelNames, Buckets = metric.Buckets ?? [] })
                     .WithLabels(labelValues);
                 histogram.Observe(metric.Value);  // Observe the metric value
                 break;
 
             case MetricType.Summary:
+                var quantiles = metric.Quantiles ?? [];
+                var epsilons = metric.Epsilons ?? [];
+                var objectives = quantiles.Zip(epsilons, (q, e) => new QuantileEpsilonPair(q, e)).ToArray();
+
                 var summary = _metricFactory
-                    .CreateSummary(metric.Name, metric.Help, new SummaryConfiguration { LabelNames = labelNames })
+                    .CreateSummary(metric.Name, metric.Help, new SummaryConfiguration { LabelNames = labelNames, Objectives = objectives })
                     .WithLabels(labelValues);
                 summary.Observe(metric.Value);  // Observe the metric value
                 break;

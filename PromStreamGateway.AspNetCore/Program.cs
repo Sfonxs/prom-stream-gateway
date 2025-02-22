@@ -16,9 +16,15 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
 
 // Configure prometheus SDK
 builder.Services.AddSingleton(provider => Metrics.NewCustomRegistry());
-builder.Services.AddSingleton(provider => Metrics.WithCustomRegistry(provider.GetRequiredService<CollectorRegistry>()));
+builder.Services.AddSingleton(provider =>
+{
+    var factory = Metrics.WithCustomRegistry(provider.GetRequiredService<CollectorRegistry>());
+    factory.ExemplarBehavior = ExemplarBehavior.NoExemplars();
+    return factory;
+});
 
 // Configure the background workers
+builder.Services.Configure<MetricOptions>(builder.Configuration.GetSection("Metrics"));
 builder.Services.AddSingleton<IHostedService, ConsumeRedisQueueProcessingHostedService>();
 builder.Services.AddScoped<IRedisQueueProcessingService, RedisQueueProcessingService>();
 
@@ -37,4 +43,4 @@ app.MapGet("/", () =>
 app.Run();
 
 // Workaround for the tests.
-public partial class Program {}
+public partial class Program { }

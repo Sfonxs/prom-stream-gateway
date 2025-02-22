@@ -10,6 +10,7 @@ services:
       - Redis__MetricQueueWorkers=4
       - Redis__MetricQueueDatabase=0
       - Redis__MetricQueueKey=prom-stream-gateway:metric-queue
+      - Metrics__SortIncomingLabels=true
     networks:
       - gateway
     ports:

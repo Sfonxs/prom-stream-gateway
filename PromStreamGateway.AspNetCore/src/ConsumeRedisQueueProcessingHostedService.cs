@@ -7,7 +7,7 @@ public class ConsumeRedisQueueProcessingHostedService : IHostedService
     private readonly int _workerCount;
     private Task[]? _workers;
     private readonly CancellationTokenSource _cts = new();
-
+    
     public ConsumeRedisQueueProcessingHostedService(
         IServiceProvider services,
          ILogger<ConsumeRedisQueueProcessingHostedService> logger,
@@ -59,6 +59,10 @@ public class ConsumeRedisQueueProcessingHostedService : IHostedService
                     try
                     {
                         await scopedProcessingService.DoWork(stoppingToken, workerIdx);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {

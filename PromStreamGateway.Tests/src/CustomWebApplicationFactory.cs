@@ -36,6 +36,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         });
     }
 
-    public async Task InitializeAsync() => await _redisFixture.InitializeAsync();
-    async Task IAsyncLifetime.DisposeAsync() => await _redisFixture.DisposeAsync();
+    async Task IAsyncLifetime.InitializeAsync() => await _redisFixture.InitializeAsync();
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        Dispose();  // Stops the WebApplicationFactory (shuts down the app)
+
+        await _redisFixture.DisposeAsync();  // Now safely shut down Redis
+    }
 }

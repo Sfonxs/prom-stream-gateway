@@ -5,11 +5,11 @@ using System.Text.Json.Serialization;
 public class MetricData
 {
     [JsonPropertyName("type")]
-    [JsonConverter(typeof(JsonStringEnumConverter))]  // Ensures type is serialized as a string
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public MetricType Type { get; set; }
 
     [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;  // Ensures `name` is never null
+    public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("help")]
     public string Help { get; set; } = string.Empty;
@@ -18,19 +18,22 @@ public class MetricData
     public double Value { get; set; }
 
     [JsonPropertyName("labels")]
-    public Dictionary<string, string>? Labels { get; set; }  // Nullable if not present
+    public Dictionary<string, string>? Labels { get; set; }
 
-    /// <summary>
-    /// Validates that `name` is not empty.
-    /// </summary>
+    [JsonPropertyName("buckets")]
+    public double[]? Buckets { get; set; }
+
+    [JsonPropertyName("quantiles")]
+    public double[]? Quantiles { get; set; }
+
+    [JsonPropertyName("epsilons")]
+    public double[]? Epsilons { get; set; }
+
     private bool IsValid()
     {
         return !string.IsNullOrWhiteSpace(Name);
     }
 
-    /// <summary>
-    /// Tries to deserialize and validate the JSON.
-    /// </summary>
     public static bool TryParse(string json, [NotNullWhen(true)] out MetricData? metric)
     {
         try
