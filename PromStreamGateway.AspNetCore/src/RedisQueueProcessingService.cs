@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using Prometheus;
 using StackExchange.Redis;
@@ -42,13 +43,13 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
             .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
             .WithLabels(workerIdx.ToString());
 
-        long iterations = 0;
-        const long iterationsUntilQueueMeasurement = 2500;
+        var sw = Stopwatch.StartNew();
+        var pendingQueueMeasureInterval = TimeSpan.FromSeconds(1);
         while (!stoppingToken.IsCancellationRequested)
         {
-            iterations++;
-            if (iterations % iterationsUntilQueueMeasurement == 0)
+            if (sw.Elapsed > pendingQueueMeasureInterval)
             {
+                sw.Restart();
                 pendingQueueSize.Set(await database.ListLengthAsync(metricQueueKey));
             }
 

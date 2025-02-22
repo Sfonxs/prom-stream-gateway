@@ -56,7 +56,7 @@ class Program
         return new
         {
             type = metricType,
-            name = $"test_metric_{_random.Next(1, 100)}",
+            name = $"test_metric_{_random.Next(1, 100)}_metricType",
             value = _random.NextDouble() * 100,
             labels = new Dictionary<string, string>
             {
