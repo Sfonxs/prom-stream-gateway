@@ -38,4 +38,4 @@ jobs:
         if: always()
         with:
           name: Test Results
-          path: TestResults/*.trx
+          path: "**/TestResults/*.trx"
