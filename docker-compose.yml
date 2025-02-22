@@ -5,9 +5,14 @@ services:
       dockerfile: ./Dockerfile
     restart: always
     hostname: prom-stream-gateway
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - Redis__MetricQueueWorkers=4
+      - Redis__MetricQueueKey=prom-stream-gateway:metric-queue
+    networks:
+      - gateway
     ports:
       - '9091:8080'
-    networks: ["default-network"]
   redis:
       image: redis:latest
       container_name: redis
@@ -15,8 +20,10 @@ services:
       hostname: redis
       ports:
         - '6379:6379'
-      networks: ["default-network"]
+      networks:
+        - gateway
       command: ["redis-server", "--save", "", "--appendonly", "no"]
 networks:
-  default-network:
+  gateway:
+    name: prom-stream-gateway
     driver: bridge

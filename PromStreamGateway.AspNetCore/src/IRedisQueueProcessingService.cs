@@ -1,4 +1,4 @@
 internal interface IRedisQueueProcessingService
 {
-    Task DoWork(CancellationToken stoppingToken);
+    Task DoWork(CancellationToken stoppingToken, int workerIdx);
 }
