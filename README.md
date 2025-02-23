@@ -18,7 +18,15 @@ A lightweight, scalable gateway that ingests metrics via a Redis queue, aggregat
 
 ## Why? When to Use?
 
--- TODO: Write this section.
+While you could use the official Prometheus Push Gateway or the Aggregation Gateway, both of these rely on an HTTP ingestion API. This means that the client must pre-aggregate the metrics before sending them to ensure efficiency.
+
+For my use case, running PHP Laravel on AWS Lambda, I observed that up to 5-7% of the Lambda's compute time was being spent solely on pre-aggregating metrics. This process involved using the PHP Prometheus SDK to collect and aggregate metrics, then rendering and sending them via an HTTP request at the end of each Lambda invocation.
+
+With this Redis-based approach, Lambda functions can immediately publish any measured metric to the Redis queue without the overhead of pre-aggregation or rendering the request body. This significantly improves performance and reduces compute costs within the lambdas.
+
+Additionally, this gateway correctly implements gauge metrics as expected—replacing values instead of accumulating them, unlike the Prometheus Aggregation Gateway, which adds up gauge values over time.
+
+(TODO: Insert graphs to illustrate performance improvements.)
 
 ## 📦 Installation & Setup
 
