@@ -11,8 +11,14 @@ builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection("Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
 {
     var redisOptions = provider.GetRequiredService<IOptions<RedisOptions>>().Value;
-    return ConnectionMultiplexer.Connect(redisOptions.ConnectionString);
+    var connectionString = redisOptions.ConnectionString;
+    if (!connectionString.Contains("abortConnect=false", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString += ",abortConnect=false";
+    }
+    return ConnectionMultiplexer.Connect(connectionString);
 });
+
 
 // Configure prometheus SDK
 builder.Services.AddSingleton(provider => Metrics.NewCustomRegistry());
