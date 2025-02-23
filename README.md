@@ -50,6 +50,67 @@ You can configure the service using `appsettings.json` or environment variables.
 | `Redis.MetricQueueKey`     | Redis queue key for the incoming metrics    | `prom-stream-gateway:metric-queue` |
 | `Metrics.SortIncomingLabels` | Whether to sort incoming labels before aggregation | `true`                           |
 
+
+## 📂 Example Metric Formats
+
+Metrics are enqueued in Redis as JSON objects. Below are the supported metric types and their respective JSON formats:
+
+### Counter
+```json
+{
+  "type": "counter",
+  "name": "http_requests_total",
+  "value": 1,
+  "labels": {
+    "method": "GET",
+    "status": "200",
+    "service": "web-app"
+  }
+}
+```
+
+### Gauge
+```json
+{
+  "type": "gauge",
+  "name": "temperature_celsius",
+  "value": 22.5,
+  "labels": {
+    "sensor": "room-1"
+  }
+}
+```
+
+### Histogram
+```json
+{
+  "type": "histogram",
+  "name": "request_duration_seconds",
+  "value": 0.75,
+  "buckets": [0.1, 0.5, 1, 5, 10],
+  "labels": {
+    "method": "GET",
+    "endpoint": "/api/data"
+  }
+}
+```
+
+### Summary
+```json
+{
+  "type": "summary",
+  "name": "http_request_size_bytes",
+  "value": 512,
+  "quantiles": [0.5, 0.9, 0.99],
+  "epsilons": [0.05, 0.01, 0.001],
+  "labels": {
+    "method": "POST",
+    "endpoint": "/upload"
+  }
+}
+```
+
+
 ## 📂 API Endpoints
 
 | Endpoint   | Method | Description                                      |
