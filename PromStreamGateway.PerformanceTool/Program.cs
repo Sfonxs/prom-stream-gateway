@@ -12,7 +12,7 @@ class Program
     static async Task Main(string[] args)
     {
         const string redisConnectionString = "localhost:6379";
-        const int ratePerSecond = 10_000;
+        const int ratePerSecond = 1_000;
         const int workerCount = 10;
 
         Console.WriteLine($"🔹 Connecting to Redis at: {redisConnectionString}");

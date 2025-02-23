@@ -11,6 +11,8 @@ services:
       - Redis__MetricQueueDatabase=0
       - Redis__MetricQueueKey=prom-stream-gateway:metric-queue
       - Metrics__SortIncomingLabels=true
+      - Metrics__DisableMetaMetrics=false
+      - Metrics__MetricQueuePopCount=25
     networks:
       - gateway
     ports:

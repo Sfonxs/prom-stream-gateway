@@ -59,6 +59,7 @@ Additionally, this gateway correctly implements gauge metrics as expected—repl
      }
    }'
    ```
+5. You can also run the performance tool to spam 1000 metric/second on the queue: `dotnet run --project .\PromStreamGateway.PerformanceTool\`
 
 ### Running in Production
 
@@ -77,7 +78,9 @@ Use `__` instead of `.` when configuring settings via environment variables.
 | `Redis.MetricQueueWorkers`  | Number of workers processing the Redis queue    | `2`                               |
 | `Redis.MetricQueueDatabase` | Database index for incoming metric queue        | `0`                               |
 | `Redis.MetricQueueKey`      | Redis queue key for incoming metrics            | `prom-stream-gateway:metric-queue`|
+| `Redis.MetricQueuePopCount`      | The amount of metrics the workers take from the queue at once.            | `25`|
 | `Metrics.SortIncomingLabels` | Whether to sort incoming labels before aggregation | `true`                            |
+| `Metrics.DisableMetaMetrics`  | Disables the meta metrics collection if set to `true`. When enabled (`false`), meta metrics provide insights into queue and processing behavior. | `false` |
 
 ## 📂 Example Metric Formats
 
@@ -137,6 +140,20 @@ Metrics are enqueued in Redis as JSON objects. Below are the supported metric ty
   }
 }
 ```
+
+## 📊 Meta Metrics
+
+In addition to processing application-specific metrics, Prometheus Stream Gateway also provides **meta metrics** that give insight into the internal behavior of the system. These meta metrics help monitor the efficiency and health of the gateway, including queue processing performance and dropped metrics.
+
+### Available Meta Metrics
+
+| Metric Name                                      | Type     | Labels  | Description |
+|-------------------------------------------------|---------|---------|-------------|
+| `prom_stream_gateway_redis_queue_empty_pops_total` | Counter | `worker`,`queueKey` | Counts the number of times a worker attempted to pop a metric from the Redis queue but found it empty. This helps in assessing if workers are frequently idle. |
+| `prom_stream_gateway_redis_queue_pending_size`    | Gauge   | `worker`,`queueKey`    | Represents the current number of metrics pending in the Redis queue. This gives a real-time snapshot of queue backlog. |
+| `prom_stream_gateway_dropped_metrics_total`      | Counter | `worker`,`queueKey` | Counts the number of metrics that were dropped due to processing constraints or errors. This helps in identifying potential data loss. |
+| `prom_stream_gateway_processed_metrics_total`    | Counter | `worker`,`queueKey` | Tracks the total number of metrics successfully processed by a worker. Useful for measuring throughput. |
+
 
 ## 📂 API Endpoints
 

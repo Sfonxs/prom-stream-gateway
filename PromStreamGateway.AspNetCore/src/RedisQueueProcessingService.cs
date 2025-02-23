@@ -31,17 +31,27 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
         var database = _redis.GetDatabase(_redisOptions.MetricQueueDatabase);
         var metricQueueKey = new RedisKey(_redisOptions.MetricQueueKey);
 
-        var emptyPopCounter = _metricFactory
-            .CreateCounter("prom_stream_gateway_redis_queue_empty_pops_total", "", new CounterConfiguration { LabelNames = ["worker"] })
-            .WithLabels(workerIdx.ToString());
-        var pendingQueueSize = _metricFactory
-            .CreateGauge("prom_stream_gateway_redis_queue_pending_size", "");
-        var droppedMetricsCounter = _metricFactory
-            .CreateCounter("prom_stream_gateway_dropped_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
-            .WithLabels(workerIdx.ToString());
-        var processedMetricsCounter = _metricFactory
-            .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker"] })
-            .WithLabels(workerIdx.ToString());
+
+        Prometheus.Counter.Child? emptyPopCounter = null;
+        Prometheus.Gauge.Child? pendingQueueSize = null;
+        Prometheus.Counter.Child? droppedMetricsCounter = null;
+        Prometheus.Counter.Child? processedMetricsCounter = null;
+
+        if (!_metricOptions.DisableMetaMetrics)
+        {
+            emptyPopCounter = _metricFactory
+                .CreateCounter("prom_stream_gateway_redis_queue_empty_pops_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
+            pendingQueueSize = _metricFactory
+                .CreateGauge("prom_stream_gateway_redis_queue_pending_size", "", new GaugeConfiguration { LabelNames = ["queueKey"], SuppressInitialValue = _metricOptions.DisableMetaMetrics })
+                .WithLabels(_redisOptions.MetricQueueKey);
+            droppedMetricsCounter = _metricFactory
+                .CreateCounter("prom_stream_gateway_dropped_metrics_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
+            processedMetricsCounter = _metricFactory
+                .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
+        }
 
         var sw = Stopwatch.StartNew();
         var pendingQueueMeasureInterval = TimeSpan.FromSeconds(1);
@@ -50,13 +60,13 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
             if (sw.Elapsed > pendingQueueMeasureInterval)
             {
                 sw.Restart();
-                pendingQueueSize.Set(await database.ListLengthAsync(metricQueueKey));
+                pendingQueueSize?.Set(await database.ListLengthAsync(metricQueueKey));
             }
 
-            var rawMetrics = await database.ListRightPopAsync(metricQueueKey, 25);
+            var rawMetrics = await database.ListRightPopAsync(metricQueueKey, _redisOptions.MetricQueuePopCount);
             if (rawMetrics == null || rawMetrics.Length == 0)
             {
-                emptyPopCounter.Inc();
+                emptyPopCounter?.Inc();
                 await Task.Delay(100, stoppingToken);
                 continue;
             }
@@ -69,21 +79,24 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
                     var rawMetricString = rawMetric.ToString();
                     if (!MetricData.TryParse(rawMetricString, out var metric, out var reason))
                     {
-                        droppedMetricsCounter.Inc();
+                        droppedMetricsCounter?.Inc();
                         _logger.LogWarning("Dropped invalid metric because \"{Reason}\": {RawJson}", reason, rawMetricString);
-                    } else {
+                    }
+                    else
+                    {
                         ProcessMetric(metric);
-                        processedMetricsCounter.Inc();
+                        processedMetricsCounter?.Inc();
                     }
                 }
                 catch (Exception e)
                 {
                     _logger.LogWarning("Dropped metric because of unexpected worker exception: {Message}", e.Message);
                     workerExceptions.Add(e);
-                    droppedMetricsCounter.Inc();
+                    droppedMetricsCounter?.Inc();
                 }
             }
-            if(workerExceptions.Count != 0) {
+            if (workerExceptions.Count != 0)
+            {
                 throw new AggregateException(workerExceptions);
             }
         }
