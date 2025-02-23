@@ -12,24 +12,20 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v3
 
-      # 1) Set up QEMU so we can build images for multiple architectures
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
 
-      # 2) Set up Docker Buildx
-      - name: Set up Docker Buildx
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 3) Log in to GHCR
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u sfonxs --password-stdin
 
-      # 4) Build and push multi-arch image
       - name: Build & Push Multi-Arch
         run: |
           docker buildx build \

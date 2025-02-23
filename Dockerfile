@@ -1,26 +1,38 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1.5
 
-# Learn about building .NET container images:
-# https://github.com/dotnet/dotnet-docker/blob/main/samples/README.md
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
-ARG TARGETARCH
+# === Stage 1: Build ===
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+# Let us detect which architecture we're building on
+ARG TARGETPLATFORM
 WORKDIR /source
 
-RUN apt-get update && apt-get install -y clang zlib1g-dev gcc libc6-dev
+# Copy everything in; adjust if your repo layout differs
+COPY . .
 
-# Copy project file and restore as distinct layers
-COPY --link PromStreamGateway.AspNetCore/*.csproj .
-RUN dotnet restore -a $TARGETARCH
+# Install cross-binutils if we detect an ARM build
+# If building on ARM64 natively (through QEMU), you need arm64 binutils for AOT linking.
+RUN apt-get update && apt-get install -y clang binutils-aarch64-linux-gnu
 
-# Copy source code and publish app
-COPY --link PromStreamGateway.AspNetCore/. .
-RUN dotnet publish -c Release -a $TARGETARCH -p:PublishAot=true --self-contained true -o /app
+# Derive the .NET Runtime Identifier from TARGETPLATFORM
+# For example, linux/amd64 -> linux-x64, linux/arm64 -> linux-arm64
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    case "$TARGETPLATFORM" in \
+      "linux/amd64")  export RID=linux-x64 ;; \
+      "linux/arm64")  export RID=linux-arm64 ;; \
+      *) echo "Unsupported platform: $TARGETPLATFORM" ; exit 1 ;; \
+    esac \
+ && dotnet publish -c Release \
+    -r "$RID" \
+    -p:PublishAot=true \
+    --self-contained true \
+    -o /app
 
-# Runtime stage
-FROM debian:bookworm-slim AS runtime
+# === Stage 2: Final Runtime Image ===
+FROM mcr.microsoft.com/dotnet/runtime-deps:9.0
 WORKDIR /app
-COPY --link --from=build /app .
-RUN chmod +x PromStreamGateway.AspNetCore
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
-ENTRYPOINT ["/app/PromStreamGateway.AspNetCore"]
+
+# Copy published output from build stage
+COPY --from=build /app ./
+
+ENTRYPOINT ["./PromStreamGateway.AspNetCore"]
