@@ -1,24 +1,24 @@
 # Prometheus Stream Gateway
 
-A lightweight, scalable gateway that ingests metrics via a Redis queue, aggregates them, and exposes them on the `/metrics` for Prometheus to scrape.
+A lightweight, scalable gateway that ingests metrics via a Redis queue, aggregates them, and exposes them on `/metrics` for Prometheus to scrape.
 
 ## 🚀 Features
 
 - **Redis Queue Processing**: Handles JSON metric ingestion via a Redis queue with concurrent processing.
 - **Histogram, Gauge, Counter, Summary Metrics**: Supports all Prometheus metric types.
-- **Aggregations**: The metrics are aggregated, so the metric sender can handle their metrics completely stateless.
-- **Small**: Uses .NET AOT keeps the footprint low and further improves efficiency.
-- **Dockerized Deployment**: Easily deployed using a containerized setup.
+- **Aggregations**: Metrics are aggregated so that the sender can remain completely stateless.
+- **Lightweight**: Uses .NET AOT to minimize footprint and enhance efficiency.
+- **Dockerized Deployment**: Easily deployable using a containerized setup.
 
 ## 🛠 How It Works
 
 1. **Metrics are Enqueued**: Services push metrics in JSON format into a Redis queue.
 2. **Worker Processes Metrics**: Background workers dequeue and aggregate the metrics.
-3. **Prometheus Metrics Endpoint**: The aggregated metrics are exposed on on `/metrics` for Prometheus to scrape.
+3. **Prometheus Metrics Endpoint**: The aggregated metrics are exposed on `/metrics` for Prometheus to scrape.
 
-## Why? When to use?
+## Why? When to Use?
 
--- todo write this out
+-- TODO: Write this section.
 
 ## 📦 Installation & Setup
 
@@ -38,40 +38,38 @@ A lightweight, scalable gateway that ingests metrics via a Redis queue, aggregat
    ```sh
    docker-compose up -d --build
    ```
-3. The service will be available at `http://localhost:9091/metrics`
+3. The service will be available at `http://localhost:9091/metrics`.
 4. Enqueue a sample metric JSON using:
-```
-LPUSH prom-stream-gateway:metric-queue '{
-  "type": "counter",
-  "name": "demo_metric",
-  "value": 10,
-  "labels": {
-    "source": "demo",
-    "category": "example"
-  }
-}'
-```
+   ```sh
+   LPUSH prom-stream-gateway:metric-queue '{
+     "type": "counter",
+     "name": "demo_metric",
+     "value": 10,
+     "labels": {
+       "source": "demo",
+       "category": "example"
+     }
+   }'
+   ```
 
-### Running In Production
+### Running in Production
 
-I run this in production on a EC2 using this [docker-compose.yml](./docker-compose.yml). (but then using official latest image `ghcr.io/sfonxs/prom-stream-gateway:latest`)
-This setup uses a lightweight redis right next to the gateway. This redis does not write anything to disk.
-As the metrics data is not essential but can still go very high in throughput, this provides me a nicely isolated setup from my other redis services).
+This service runs in production on an EC2 instance using this [docker-compose.yml](./docker-compose.yml) configuration. The official latest image `ghcr.io/sfonxs/prom-stream-gateway:latest` is used.
 
+This setup includes a lightweight Redis instance running alongside the gateway. The Redis instance does not persist data to disk. Since metric data is non-essential but can have a high throughput, this provides an isolated setup separate from other Redis services.
 
 ## ⚙️ Configuration
 
-You can configure the service using `appsettings.json` or environment variables. 
-Use '__' instead of '.' when configure the settings as environment variables.
+The service can be configured using `appsettings.json` or environment variables.
+Use `__` instead of `.` when configuring settings via environment variables.
 
-| Setting                   | Description                                      | Default Value                    |
-|---------------------------|--------------------------------------------------|----------------------------------|
-| `Redis.ConnectionString`  | Redis server connection string                   | `localhost:6379`                |
-| `Redis.MetricQueueWorkers` | Number of workers processing the Redis queue    | `2`                              |
-| `Redis.MetricQueueDatabase` | Database index for incoming metric queue            | `0`                              |
-| `Redis.MetricQueueKey`     | Redis queue key for the incoming metrics    | `prom-stream-gateway:metric-queue` |
-| `Metrics.SortIncomingLabels` | Whether to sort incoming labels before aggregation | `true`                           |
-
+| Setting                     | Description                                      | Default Value                     |
+|-----------------------------|--------------------------------------------------|-----------------------------------|
+| `Redis.ConnectionString`    | Redis server connection string                   | `localhost:6379`                  |
+| `Redis.MetricQueueWorkers`  | Number of workers processing the Redis queue    | `2`                               |
+| `Redis.MetricQueueDatabase` | Database index for incoming metric queue        | `0`                               |
+| `Redis.MetricQueueKey`      | Redis queue key for incoming metrics            | `prom-stream-gateway:metric-queue`|
+| `Metrics.SortIncomingLabels` | Whether to sort incoming labels before aggregation | `true`                            |
 
 ## 📂 Example Metric Formats
 
@@ -131,7 +129,6 @@ Metrics are enqueued in Redis as JSON objects. Below are the supported metric ty
   }
 }
 ```
-
 
 ## 📂 API Endpoints
 
