@@ -47,7 +47,7 @@ class Program
             {
                 var metric = GenerateRandomMetric();
                 string json = JsonSerializer.Serialize(metric);
-                await _db.ListLeftPushAsync(_queueKey, json);
+                await _db!.ListLeftPushAsync(_queueKey, json);
             }
 
             var elapsed = sw.Elapsed;

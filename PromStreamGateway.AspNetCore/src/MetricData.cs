@@ -3,10 +3,13 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+[JsonSerializable(typeof(MetricData))]
+internal partial class MetricDataJsonContext : JsonSerializerContext { }
+
 public class MetricData
 {
     [JsonPropertyName("type")]
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter<MetricType>))]
     public MetricType Type { get; set; }
 
     [JsonPropertyName("name")]
@@ -78,7 +81,7 @@ public class MetricData
         reason = string.Empty;
         try
         {
-            metric = JsonSerializer.Deserialize<MetricData>(json);
+            metric = JsonSerializer.Deserialize(json, MetricDataJsonContext.Default.MetricData);
             return metric != null && metric.IsValid(out reason);
         }
         catch (JsonException)

@@ -4,6 +4,7 @@ using Prometheus;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddEnvironmentVariables();
 
 // Configure redis client
 builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection("Redis"));
