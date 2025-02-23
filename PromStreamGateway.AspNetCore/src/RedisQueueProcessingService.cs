@@ -53,31 +53,38 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
                 pendingQueueSize.Set(await database.ListLengthAsync(metricQueueKey));
             }
 
-            var rawMetric = await database.ListRightPopAsync(metricQueueKey);
-            if (!rawMetric.HasValue)
+            var rawMetrics = await database.ListRightPopAsync(metricQueueKey, 25);
+            if (rawMetrics == null || rawMetrics.Length == 0)
             {
                 emptyPopCounter.Inc();
                 await Task.Delay(100, stoppingToken);
                 continue;
             }
 
-            var rawMetricString = rawMetric.ToString();
-            if (!MetricData.TryParse(rawMetricString, out var metric, out var reason))
+            var workerExceptions = new List<Exception>();
+            foreach (var rawMetric in rawMetrics)
             {
-                droppedMetricsCounter.Inc();
-                _logger.LogWarning("Dropped invalid metric because \"{Reason}\": {RawJson}", reason, rawMetricString);
-                continue;
+                try
+                {
+                    var rawMetricString = rawMetric.ToString();
+                    if (!MetricData.TryParse(rawMetricString, out var metric, out var reason))
+                    {
+                        droppedMetricsCounter.Inc();
+                        _logger.LogWarning("Dropped invalid metric because \"{Reason}\": {RawJson}", reason, rawMetricString);
+                    } else {
+                        ProcessMetric(metric);
+                        processedMetricsCounter.Inc();
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning("Dropped metric because of unexpected worker exception: {Message}", e.Message);
+                    workerExceptions.Add(e);
+                    droppedMetricsCounter.Inc();
+                }
             }
-
-            try
-            {
-                ProcessMetric(metric);
-                processedMetricsCounter.Inc();
-            }
-            catch
-            {
-                droppedMetricsCounter.Inc();
-                throw;
+            if(workerExceptions.Count != 0) {
+                throw new AggregateException(workerExceptions);
             }
         }
     }
