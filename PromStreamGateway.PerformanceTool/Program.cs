@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using StackExchange.Redis;
 
 class Program
@@ -11,26 +12,27 @@ class Program
     static async Task Main(string[] args)
     {
         const string redisConnectionString = "localhost:6379";
-        const int spamRate = 1000;
-        const int workerCount = 4;
+        const int ratePerSecond = 10_000;
+        const int workerCount = 10;
 
         Console.WriteLine($"🔹 Connecting to Redis at: {redisConnectionString}");
         _redis = await ConnectionMultiplexer.ConnectAsync(redisConnectionString);
         _db = _redis.GetDatabase();
 
-        Console.WriteLine($"🚀 Spamming {spamRate} metrics per second with {workerCount} workers...");
+        Console.WriteLine($"🚀 Spamming {ratePerSecond} metrics per second with {workerCount} workers...");
 
         var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (sender, eventArgs) => { 
-            eventArgs.Cancel = true; 
-            cts.Cancel(); 
+        Console.CancelKeyPress += (sender, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            cts.Cancel();
         };
 
         // Start worker tasks
         var tasks = new List<Task>();
         for (int i = 0; i < workerCount; i++)
         {
-            tasks.Add(Task.Run(() => SpamMetrics(spamRate / workerCount, cts.Token)));
+            tasks.Add(Task.Run(() => SpamMetrics(ratePerSecond / workerCount, cts.Token)));
         }
 
         await Task.WhenAll(tasks);
@@ -38,13 +40,27 @@ class Program
 
     private static async Task SpamMetrics(int messagesPerSecond, CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
         while (!cancellationToken.IsCancellationRequested)
         {
-            var metric = GenerateRandomMetric();
-            string json = JsonSerializer.Serialize(metric);
-            await _db.ListLeftPushAsync(_queueKey, json);
+            for (int i = 0; i < messagesPerSecond; i++)
+            {
+                var metric = GenerateRandomMetric();
+                string json = JsonSerializer.Serialize(metric);
+                await _db.ListLeftPushAsync(_queueKey, json);
+            }
 
-            await Task.Delay(1000 / messagesPerSecond, cancellationToken);
+            var elapsed = sw.Elapsed;
+            var remaining = TimeSpan.FromSeconds(1) - elapsed;
+            sw.Restart();
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining);
+            }
+            else
+            {
+                Console.WriteLine("Worker can not keep up with the configured messages per second: " + messagesPerSecond + ". Current speed: " + (messagesPerSecond / elapsed.TotalSeconds));
+            }
         }
     }
 
@@ -56,7 +72,7 @@ class Program
         return new
         {
             type = metricType,
-            name = $"test_metric_{_random.Next(1, 100)}_metricType",
+            name = $"test_metric_{_random.Next(1, 100)}_{metricType}",
             value = _random.NextDouble() * 100,
             labels = new Dictionary<string, string>
             {
