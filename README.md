@@ -7,7 +7,6 @@ A lightweight, scalable gateway that ingests metrics via a Redis queue, aggregat
 - **Redis Queue Processing**: Handles JSON metric ingestion via a Redis queue with concurrent processing.
 - **Histogram, Gauge, Counter, Summary Metrics**: Supports all Prometheus metric types.
 - **Aggregations**: Metrics are aggregated so that the sender can remain completely stateless.
-- **Lightweight**: Uses .NET AOT to minimize footprint and enhance efficiency.
 - **Dockerized Deployment**: Easily deployable using a containerized setup.
 
 ## 🛠 How It Works

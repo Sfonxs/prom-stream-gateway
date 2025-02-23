@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up QEMU
+      - name: Set up QEMU (for ARM emulation)
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
@@ -23,8 +23,8 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u sfonxs --password-stdin
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build & Push Multi-Arch
         run: |
