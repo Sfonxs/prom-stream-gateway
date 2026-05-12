@@ -40,16 +40,39 @@ internal class RedisQueueProcessingService : IRedisQueueProcessingService
         if (!_metricOptions.DisableMetaMetrics)
         {
             emptyPopCounter = _metricFactory
-                .CreateCounter("prom_stream_gateway_redis_queue_empty_pops_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .CreateCounter(
+                    "prom_stream_gateway_redis_queue_empty_pops_total",
+                    "Number of times this Prom Stream Gateway worker called RPOP on the Redis metric queue and got nothing back, then slept 100ms before retrying. " +
+                    "A high-and-growing rate across all workers means the workers are mostly idle and you can safely lower Redis.MetricQueueWorkers; a rate near zero on every worker means the queue is consistently saturated and the gateway may be falling behind ingestion (compare against prom_stream_gateway_redis_queue_pending_size). " +
+                    "Labels: worker = ordinal index of the background worker (0..Redis.MetricQueueWorkers-1); queueKey = Redis list key being drained (Redis.MetricQueueKey).",
+                    new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
                 .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
             pendingQueueSize = _metricFactory
-                .CreateGauge("prom_stream_gateway_redis_queue_pending_size", "", new GaugeConfiguration { LabelNames = ["queueKey"], SuppressInitialValue = _metricOptions.DisableMetaMetrics })
+                .CreateGauge(
+                    "prom_stream_gateway_redis_queue_pending_size",
+                    "Current LLEN of the Redis metric queue, sampled by every Prom Stream Gateway worker once per second. " +
+                    "This is the live backlog of metric JSON payloads that producers (e.g. AWS Lambda invocations) have LPUSHed but no worker has RPOPed yet. " +
+                    "A non-zero, growing value means producers are publishing faster than the worker pool can drain, so aggregated metrics on /metrics will lag behind reality. " +
+                    "Sustained growth is the primary signal that the gateway needs more workers (Redis.MetricQueueWorkers), a larger pop batch (Redis.MetricQueuePopCount), or that downstream Prometheus is scraping too slowly. " +
+                    "Label: queueKey = Redis list key being measured (Redis.MetricQueueKey).",
+                    new GaugeConfiguration { LabelNames = ["queueKey"], SuppressInitialValue = _metricOptions.DisableMetaMetrics })
                 .WithLabels(_redisOptions.MetricQueueKey);
             droppedMetricsCounter = _metricFactory
-                .CreateCounter("prom_stream_gateway_dropped_metrics_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .CreateCounter(
+                    "prom_stream_gateway_dropped_metrics_total",
+                    "Number of metric payloads this Prom Stream Gateway worker discarded without aggregating them. " +
+                    "A drop happens for one of two reasons: (1) the JSON failed MetricData.TryParse validation (malformed JSON, unknown 'type', missing required fields, etc.) — these are logged at Warning with the parse reason and the raw JSON; or (2) the per-metric aggregation threw an unexpected exception (e.g. label cardinality conflict with an existing series of the same name). " +
+                    "Any non-zero value here represents producer-side data loss for that metric sample; investigate the worker logs to find the offending payloads. " +
+                    "Labels: worker = ordinal index of the background worker; queueKey = Redis list key the dropped payload was popped from.",
+                    new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
                 .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
             processedMetricsCounter = _metricFactory
-                .CreateCounter("prom_stream_gateway_processed_metrics_total", "", new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
+                .CreateCounter(
+                    "prom_stream_gateway_processed_metrics_total",
+                    "Number of metric payloads this Prom Stream Gateway worker successfully parsed and applied to the in-memory Prometheus registry that backs /metrics. " +
+                    "Sum across workers gives the total ingestion throughput of the gateway; use rate() to see metrics-per-second and compare to prom_stream_gateway_redis_queue_pending_size to detect whether throughput is keeping up with producer load. " +
+                    "Labels: worker = ordinal index of the background worker; queueKey = Redis list key the payload was popped from.",
+                    new CounterConfiguration { LabelNames = ["worker", "queueKey"] })
                 .WithLabels(workerIdx.ToString(), _redisOptions.MetricQueueKey);
         }
 
